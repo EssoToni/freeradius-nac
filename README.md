@@ -140,11 +140,12 @@ A simple approach: create a script /usr/local/bin/add_ip.sh:
 #!/bin/bash
 IP="$1"
 nft add element inet nac allowed_ips { $IP }
+```
 
 Make it executable: sudo chmod +x /usr/local/bin/add_ip.sh.
 
 Then in FreeRADIUS, in the post-auth section of /etc/freeradius/3.0/sites-enabled/default, add:
-text
+```text
 
 exec add_ip {
     wait = yes
