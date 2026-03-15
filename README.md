@@ -69,33 +69,35 @@ sudo systemctl enable freradius nftables
 ### 2. Prepare the RADIUS Client (ub1)
 
 Install the RADIUS utilities for testing:
-bash
+```bash
 
 sudo apt install freeradius-utils -y
+```
+
 
 ### 3. Configure FreeRADIUS
 #### 3.1 Define RADIUS Clients
-
 Edit /etc/freeradius/3.0/clients.conf and add the client network:
-bash
+```bash
 
 client ub1 {
     ipaddr = 192.168.88.0/24
     secret = testing123
     shortname = labclient
 }
+```
 
 #### 3.2 Add a Test User
 
 Edit /etc/freeradius/3.0/users and create a user:
-text
+
 
 bob   Cleartext-Password := "secretbob"
 
 ### 4. Configure nftables for Dynamic NAC
 
 Create or edit /etc/nftables.conf with the following ruleset:
-bash
+```bash
 
 #!/usr/sbin/nft -f
 
@@ -113,6 +115,7 @@ table inet nac {
         ip saddr @allowed_ips accept
     }
 }
+```
 
 This defines:
 
@@ -132,7 +135,7 @@ sudo systemctl status nftables
 FreeRADIUS can be extended to add the client’s IP to the nftables set upon successful authentication. This can be done via the exec module or a custom script. For this lab, we will manually verify the flow and later automate it.
 
 A simple approach: create a script /usr/local/bin/add_ip.sh:
-bash
+```bash
 
 #!/bin/bash
 IP="$1"
@@ -147,6 +150,7 @@ exec add_ip {
     wait = yes
     program = "/usr/local/bin/add_ip.sh \"%{Calling-Station-Id}\""
 }
+```
 
     Note: Calling-Station-Id usually holds the client MAC address; you may need to adjust based on your RADIUS client attributes. Alternatively, use the source IP from the request. A more robust solution would extract the NAS‑IP or Framed‑IP.
 
@@ -155,17 +159,19 @@ For simplicity, the lab will first test with manual addition, then demonstrate a
 ### 1. Test RADIUS Authentication with radclient
 
 On the client (ub1), create a request file request.txt:
-text
+```text
 
 User-Name = bob
 User-Password = secretbob
 NAS-IP-Address = 192.168.88.10
 NAS-Port = 0
+```
 
 Send the request to the RADIUS server:
-bash
+```bash
 
 radclient -x 192.168.88.17 auth testing123 < request.txt
+```
 
 Expected output:
 text
@@ -176,22 +182,25 @@ Received Access-Accept ...
 ### 2. Verify Dynamic IP Addition
 
 On the NAC server, check the nftables set:
-bash
+```bash
 
 sudo nft list set inet nac allowed_ips
+```
 
 If the integration is active, the client’s IP should appear. If not, manually add the IP to test the firewall behavior:
-bash
+```bash
 
 sudo nft add element inet nac allowed_ips { 192.168.88.10 }
+```
 
 Now the client should be able to forward traffic through the server (e.g., ping or connect to a service on the authorized network). Test by pinging from ub1 to an IP beyond the server (simulate an internal network).
 ### 3. Verify Blocking
 
 Remove the IP from the set (or wait for timeout) and confirm that traffic is dropped:
-bash
+```bash
 
 sudo nft delete element inet nac allowed_ips { 192.168.88.10 }
+```
 
 Now pings or connections from ub1 should fail.
 ## Results
